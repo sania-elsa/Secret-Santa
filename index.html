@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Secret Santa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-6 flex justify-center">
+  <div class="w-full max-w-2xl bg-white p-6 rounded-xl shadow">
+
+    <h1 class="text-2xl font-bold mb-6 text-center">Secret Santa</h1>
+
+    <!-- ==================== ADMIN SECTION ==================== -->
+    <div id="admin-section" class="hidden">
+      <h2 class="text-xl font-semibold mb-3">Admin Mode</h2>
+      <p class="text-gray-600 mb-2">Enter all participant names (one per line):</p>
+
+      <textarea id="admin-list" class="w-full border p-3 rounded h-48 mb-4"
+        placeholder="Alice&#10;Bob&#10;Charlie"></textarea>
+
+      <button id="generate-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Generate Secret Santa Code
+      </button>
+
+      <div class="mt-4">
+        <p class="font-semibold">Generated Code:</p>
+        <textarea id="result-code" class="w-full border p-3 rounded mt-2 h-24"
+          placeholder="Code will appear here..."></textarea>
+      </div>
+
+      <p class="text-sm text-gray-500 mt-4">
+        Share this SAME website file and the generated code with participants.
+      </p>
+    </div>
+
+    <!-- ================= PARTICIPANT SECTION ================= -->
+    <div id="participant-section" class="hidden">
+      <h2 class="text-xl font-semibold mb-3">Find Your Secret Santa Match</h2>
+
+      <label class="block mb-1 font-medium">Your Name:</label>
+      <input id="user-name" class="w-full border p-2 rounded mb-4" placeholder="Enter your name" />
+
+      <label class="block mb-1 font-medium">Secret Code:</label>
+      <textarea id="code-input" class="w-full border p-2 rounded h-24 mb-4"
+        placeholder="Paste the code given by the organizer..."></textarea>
+
+      <button id="reveal-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        Reveal My Match
+      </button>
+
+      <div id="reveal-result" class="mt-4 text-lg font-semibold text-center"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ------------------ Helper Functions ------------------
+    function normalizeName(n) { return (n || "").trim().toLowerCase(); }
+    function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+    function encodeData(obj) { return btoa(JSON.stringify(obj)); }
+    function decodeData(str) { try { return JSON.parse(atob(str)); } catch (e) { return null; } }
+
+    // ---------------------- DOM ----------------------
+    const adminSection = document.getElementById("admin-section");
+    const participantSection = document.getElementById("participant-section");
+    const adminList = document.getElementById("admin-list");
+    const generateBtn = document.getElementById("generate-btn");
+    const resultCodeBox = document.getElementById("result-code");
+    const userNameInput = document.getElementById("user-name");
+    const codeInput = document.getElementById("code-input");
+    const revealBtn = document.getElementById("reveal-btn");
+    const revealResult = document.getElementById("reveal-result");
+
+    // ------------------ Mode Selection ------------------
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAdmin = urlParams.get("admin") === "1";
+
+    if (isAdmin) {
+      adminSection.classList.remove("hidden");
+    } else {
+      participantSection.classList.remove("hidden");
+    }
+
+    // ------------------ Admin: Generate Code ------------------
+    function getAdminNames() {
+      return adminList.value
+        .split("\n")
+        .map(n => n.trim())
+        .filter(Boolean);
+    }
+
+    function createAssignment(names) {
+      const n = names.length;
+      const idx = [...Array(n).keys()];
+
+      for (let attempt = 0; attempt < 5000; attempt++) {
+        const rec = shuffle(idx.slice());
+        let ok = true;
+        for (let i = 0; i < n; i++) {
+          if (i === rec[i]) { ok = false; break; }
+        }
+        if (ok) {
+          const map = {};
+          for (let i = 0; i < n; i++) {
+            map[names[i]] = names[rec[i]];
+          }
+          return map;
+        }
+      }
+
+      return null;
+    }
+
+    generateBtn.addEventListener("click", () => {
+      const names = getAdminNames();
+      if (names.length < 2) {
+        alert("Enter at least 2 names.");
+        return;
+      }
+
+      const assignment = createAssignment(names);
+      if (!assignment) {
+        alert("Could not generate a valid Secret Santa draw.");
+        return;
+      }
+
+      resultCodeBox.value = encodeData(assignment);
+    });
+
+    // ------------------ Participant: Reveal ------------------
+    revealBtn.addEventListener("click", () => {
+      const name = userNameInput.value.trim();
+      const code = codeInput.value.trim();
+
+      if (!name || !code) {
+        revealResult.textContent = "Please enter your name and the code.";
+        return;
+      }
+
+      const data = decodeData(code);
+      if (!data) {
+        revealResult.textContent = "Invalid code.";
+        return;
+      }
+
+      const key = Object.keys(data).find(
+        k => normalizeName(k) === normalizeName(name)
+      );
+
+      if (!key) {
+        revealResult.textContent = "Your name is not in the Secret Santa list.";
+        return;
+      }
+
+      revealResult.innerHTML = `🎁 You will give a gift to: <strong>${data[key]}</strong>`;
+    });
+  </script>
+
+</body>
+</html>
